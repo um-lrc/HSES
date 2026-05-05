@@ -6,6 +6,7 @@ import { decode, decodeAudioData, createWavBlob } from '../services/audioUtils';
 import { getApiKey } from '../services/api';
 import { FeedbackForm } from './FeedbackForm';
 import { generateTranscript, generateHtmlTranscript, generateStudyGuideHtml, generateSessionJson, downloadFile, shareToInstructor } from '../services/reportUtils';
+import { useScreenRecorder } from '../hooks/useScreenRecorder';
 
 interface TextModeProps {
   persona: Persona;
@@ -14,6 +15,7 @@ interface TextModeProps {
   portraits: Record<string, string>;
   setPortraits: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   initialMessages?: Message[];
+  requestFeedback: boolean;
 }
 
 interface Alternative {
@@ -21,7 +23,7 @@ interface Alternative {
   label: string;
 }
 
-export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, portraits, setPortraits, initialMessages }) => {
+export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, initialMessages, requestFeedback }) => {
   const [messages, setMessages] = useState<Message[]>(initialMessages || []);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -40,7 +42,10 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
   const [isRecording, setIsRecording] = useState(false);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [imgError, setImgError] = useState(false);
-  const [isGeneratingPortrait, setIsGeneratingPortrait] = useState(false);
+  const [showPostSessionFeedback, setShowPostSessionFeedback] = useState(false);
+  const portraitSrc = `/portraits/${persona.id}.png`;
+
+  const { isRecording: isVideoRecording, startRecording: startVideoRecording, stopRecording: stopVideoRecording } = useScreenRecorder(persona.name);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -48,38 +53,6 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
   const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-
-  const handleGeneratePortrait = async () => {
-    setIsGeneratingPortrait(true);
-    setImgError(false);
-    try {
-      const apiKey = getApiKey();
-      const ai = new GoogleGenAI({ apiKey });
-      const desc = persona.visualDescription || persona.description;
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: [
-          {
-            parts: [
-              { text: `A photorealistic portrait of ${persona.name}, who is a ${persona.title}. Description: ${desc}. The style should be highly detailed, photorealistic, cinematic lighting, professional photography. STRICTLY NO TEXT, NO WORDS, NO WATERMARKS, NO LOGOS, NO LETTERS. Solid background.` }
-            ]
-          }
-        ]
-      });
-      
-      for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) {
-          const newImage = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-          setPortraits(prev => ({ ...prev, [persona.id]: newImage }));
-          break;
-        }
-      }
-    } catch (err) {
-      console.error("Failed to generate character image:", err);
-    } finally {
-      setIsGeneratingPortrait(false);
-    }
-  };
 
   const getAIResponse = async (history: Message[]) => {
     setIsTyping(true);
@@ -399,6 +372,15 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
     shareToInstructor(persona, scenario);
   };
 
+  const handleExitWithRecording = () => {
+    stopVideoRecording();
+    if (requestFeedback) {
+      setShowPostSessionFeedback(true);
+    } else {
+      onExit();
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Global shortcuts for TextMode
@@ -421,12 +403,12 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
         }
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        onExit();
+        handleExitWithRecording();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [messages, onExit, isSpeaking]);
+  }, [messages, onExit, isSpeaking, requestFeedback]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -456,7 +438,7 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
                 {!imgError ? (
                   <>
                     <img 
-                      src={portraits[persona.id] || `./portraits/${persona.id}.png`} 
+                      src={portraitSrc} 
                       alt={persona.name} 
                       className="w-full h-full object-cover" 
                       onError={() => setImgError(true)}
@@ -465,7 +447,7 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
                       onClick={(e) => {
                         e.stopPropagation();
                         const link = document.createElement('a');
-                        link.href = portraits[persona.id] || `./portraits/${persona.id}.png`;
+                        link.href = portraitSrc;
                         link.download = `${persona.id}.png`;
                         document.body.appendChild(link);
                         link.click();
@@ -480,18 +462,6 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
                 ) : (
                   <div className="relative group w-full h-full flex items-center justify-center">
                     {persona.avatar}
-                    <button 
-                      onClick={handleGeneratePortrait}
-                      disabled={isGeneratingPortrait}
-                      className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
-                      title="Generate Portrait"
-                    >
-                      {isGeneratingPortrait ? (
-                        <div className="w-4 h-4 md:w-6 md:h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <svg className="w-4 h-4 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h14a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                      )}
-                    </button>
                   </div>
                 )}
               </div>
@@ -546,7 +516,7 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
                 <span className="hidden xs:inline">Portfolio</span>
               </button>
               <button 
-                onClick={onExit} 
+                onClick={handleExitWithRecording} 
                 className="text-white bg-red-600/20 hover:bg-red-600/40 font-black text-[7px] md:text-[10px] uppercase tracking-widest transition-colors border border-red-600/30 px-2 md:px-4 py-1 md:py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                 aria-label="Exit Session (Esc)"
               >
@@ -573,12 +543,23 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
                   >
                     <svg className={`w-4 h-4 ${isSpeaking === 'briefing' ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
                   </button>
-                  <button onClick={() => setShowBriefing(false)} className="text-[#00274C]/30 hover:text-[#00274C]"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
                 <div className="flex items-center gap-2 mb-1 md:mb-2 text-[#00274C]">
                   <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest">Scenario Briefing</span>
                 </div>
                 <p className="text-slate-700 text-xs md:text-sm leading-relaxed italic pr-6 md:pr-8 font-medium">"{scenario.context}"</p>
+                
+                <div className="mt-4 flex justify-end">
+                  <button 
+                    onClick={() => {
+                      setShowBriefing(false);
+                      startVideoRecording();
+                    }}
+                    className="bg-[#00274C] text-[#FFCB05] px-4 py-2 rounded-lg font-black uppercase tracking-widest text-[10px] hover:bg-[#003d77] transition-all"
+                  >
+                    Start Session & Record
+                  </button>
+                </div>
               </div>
             )}
 
@@ -671,6 +652,18 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
                               title="Provide assessment"
                             >
                               <svg className="w-3 h-3 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
+                            <button 
+                              onClick={() => handleDownloadAudio(m.text, i)}
+                              disabled={isDownloading === i}
+                              className={`p-1 rounded-lg transition-colors ${isDownloading === i ? 'text-[#FFCB05] bg-[#00274C]' : 'text-[#00274C]/30 hover:text-[#00274C] hover:bg-[#00274C]/5'}`}
+                              title="Download Audio Response"
+                            >
+                              {isDownloading === i ? (
+                                <div className="w-3 h-3 md:w-3.5 md:h-3.5 border-2 border-[#00274C] border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <svg className="w-3 h-3 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                              )}
                             </button>
                           </>
                         )}
@@ -885,6 +878,30 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, p
         )}
       </div>
       <style>{`.custom-scrollbar::-webkit-scrollbar { width: 4px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #00274C20; border-radius: 10px; }`}</style>
+      {showPostSessionFeedback && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-xl w-full text-center space-y-6">
+            <h2 className="text-2xl font-black text-[#00274C] uppercase tracking-widest">Session Complete</h2>
+            <p className="text-slate-600">Your session has been recorded and exported. Please provide some brief feedback on your experience.</p>
+            <div className="p-6 bg-[#F8F9FA] rounded-2xl border-2 border-[#00274C]/10 text-left">
+              <label className="block text-[10px] font-black text-[#00274C] uppercase tracking-widest mb-2">Overall Quality</label>
+              <div className="flex gap-2 mb-4">
+                {[1,2,3,4,5].map(v => (
+                  <button key={v} className="w-10 h-10 rounded-lg border-2 border-[#00274C]/20 hover:border-[#FFCB05] hover:bg-[#FFCB05]/10 flex items-center justify-center font-bold text-[#00274C]">{v}</button>
+                ))}
+              </div>
+              <label className="block text-[10px] font-black text-[#00274C] uppercase tracking-widest mb-2">Comments</label>
+              <textarea className="w-full p-4 rounded-xl border-2 border-[#00274C]/10 outline-none focus:border-[#00274C]" rows={4} placeholder="How was the simulation?"></textarea>
+            </div>
+            <button 
+              onClick={onExit}
+              className="w-full bg-[#00274C] text-[#FFCB05] py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-[#003d77] transition-all"
+            >
+              Finish & Return to Main Menu
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

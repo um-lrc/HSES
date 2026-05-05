@@ -1,8 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Persona, PersonaType, Scenario } from '../types';
 import * as XLSX from 'xlsx';
-import { getApiKey } from '../services/api';
-import { GoogleGenAI } from '@google/genai';
 
 interface TeacherModeProps {
   personas: Persona[];
@@ -28,7 +26,6 @@ export const TeacherMode: React.FC<TeacherModeProps> = ({
   const [emailInput, setEmailInput] = useState(instructorEmail);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const portraitFileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
-  const [generatingIds, setGeneratingIds] = useState<Record<string, boolean>>({});
 
   const handleEmailSave = () => {
     onUpdateInstructorEmail(emailInput);
@@ -153,37 +150,6 @@ export const TeacherMode: React.FC<TeacherModeProps> = ({
     };
     reader.readAsText(file);
     event.target.value = '';
-  };
-
-  const handleGenerate = async (persona: Persona) => {
-    setGeneratingIds(prev => ({ ...prev, [persona.id]: true }));
-    try {
-      const apiKey = getApiKey();
-      const ai = new GoogleGenAI({ apiKey });
-      const desc = persona.visualDescription || persona.description;
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: [
-          {
-            parts: [
-              { text: `A photorealistic portrait of ${persona.name}, who is a ${persona.title}. Description: ${desc}. The style should be highly detailed, photorealistic, cinematic lighting, professional photography. STRICTLY NO TEXT, NO WORDS, NO WATERMARKS, NO LOGOS, NO LETTERS. Solid background.` }
-            ]
-          }
-        ]
-      });
-      
-      for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) {
-          const newImage = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-          setPortraits(prev => ({ ...prev, [persona.id]: newImage }));
-          break;
-        }
-      }
-    } catch (err) {
-      console.error("Failed to generate character image:", err);
-    } finally {
-      setGeneratingIds(prev => ({ ...prev, [persona.id]: false }));
-    }
   };
 
   const downloadExcel = () => {
@@ -428,17 +394,6 @@ export const TeacherMode: React.FC<TeacherModeProps> = ({
                     <p className="text-[8px] md:text-[10px] text-slate-500 mb-2 line-clamp-1">{persona.title}</p>
                     
                     <div className="flex flex-col gap-1.5 w-full mt-auto">
-                      <button 
-                        onClick={() => handleGenerate(persona)}
-                        disabled={generatingIds[persona.id]}
-                        className="w-full bg-[#FFCB05] hover:bg-[#FFCB05]/90 text-[#00274C] py-1.5 rounded-lg text-[9px] md:text-[10px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
-                      >
-                        {generatingIds[persona.id] ? (
-                          <span className="animate-pulse">...</span>
-                        ) : (
-                          "Generate"
-                        )}
-                      </button>
                       <div className="flex gap-1">
                         <input 
                           type="file" 
@@ -449,15 +404,17 @@ export const TeacherMode: React.FC<TeacherModeProps> = ({
                         />
                         <button 
                           onClick={() => handleUploadClick(persona.id)}
-                          className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-1.5 rounded-lg text-[9px] md:text-[10px] font-bold transition-colors"
+                          className="flex-1 bg-[#FFCB05] hover:bg-[#FFCB05]/90 text-[#00274C] py-2 rounded-lg text-[9px] md:text-[10px] font-bold transition-colors flex items-center justify-center gap-1"
                         >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                           Upload
                         </button>
                         <button 
                           onClick={() => handleDownload(persona.id, persona.name)}
                           disabled={!portraits[persona.id]}
-                          className="flex-1 bg-[#00274C] hover:bg-[#00274C]/90 text-white py-1.5 rounded-lg text-[9px] md:text-[10px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 bg-[#00274C] hover:bg-[#00274C]/90 text-white py-2 rounded-lg text-[9px] md:text-[10px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
                         >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                           Save
                         </button>
                       </div>

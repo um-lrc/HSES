@@ -20,7 +20,12 @@ export const PERSONAS: Persona[] = [
     description: "Academic rigor personified. He expects directness and clear data-driven progress updates.",
     visualDescription: "A 60-year-old Black male professor with silver hair and glasses.",
     goal: "Practice technical clarity and research-focused conciseness.",
-    avatar: "👨‍🔬",
+    rubric: [
+      { criterion: "Technical accuracy in failure report", points: 40 },
+      { criterion: "Professional modal usage in recovery plan", points: 30 },
+      { criterion: "Defensive methodology reasoning", points: 30 }
+    ],
+    avatar: "/avatars/ADVISOR.png",
     voiceName: 'Fenrir',
     systemInstruction: "You are Dr. Aris Thorne. You value academic precision and efficiency. If the student is vague, ask for data. Correct their professional etiquette if they are too casual.",
     embeddedContext: "",
@@ -102,7 +107,12 @@ export const PERSONAS: Persona[] = [
     description: "Brilliant but overworked. Needs clear boundaries and actionable requests.",
     visualDescription: "A 35-year-old East Asian non-binary researcher with short hair.",
     goal: "Practice peer-to-peer negotiation and boundary setting.",
-    avatar: "🧑‍🔬",
+    rubric: [
+      { criterion: "Professional boundary setting", points: 35 },
+      { criterion: "Clear data access request", points: 35 },
+      { criterion: "De-escalation of disagreement", points: 30 }
+    ],
+    avatar: "/avatars/PEER_COLLABORATOR.png",
     voiceName: 'Puck',
     systemInstruction: "You are Dr. Jamie Chen, a stressed post-doc. You want to help but are overwhelmed. Push back if the student asks for too much time.",
     embeddedContext: "",
@@ -184,7 +194,12 @@ export const PERSONAS: Persona[] = [
     description: "Results-oriented and fast-paced. She wants to know what you can do for the company, not just what you studied.",
     visualDescription: "A 40-year-old Hispanic female corporate manager in a sharp blazer.",
     goal: "Translate academic skills into industry value.",
-    avatar: "👩‍💼",
+    rubric: [
+      { criterion: "Translation of research to industry impact", points: 40 },
+      { criterion: "Data-backed wage negotiation", points: 30 },
+      { criterion: "Growth-oriented feedback response", points: 30 }
+    ],
+    avatar: "/avatars/HIRING_MANAGER.png",
     voiceName: 'Kore',
     systemInstruction: "You are Sarah Davis. You are interviewing a PhD student for an industry role. You are skeptical of 'academic' answers. Push for concrete examples of impact and teamwork.",
     profile: hiringManagerProfile,
@@ -264,7 +279,12 @@ export const PERSONAS: Persona[] = [
     description: "A stickler for university rules and formatting. Focuses heavily on the 'big picture' contribution.",
     visualDescription: "A 55-year-old White male academic with a beard and tweed jacket.",
     goal: "Defend the broader impact and structural integrity of your work.",
-    avatar: "👨‍🏫",
+    rubric: [
+      { criterion: "Big-picture impact articulation", points: 40 },
+      { criterion: "Theoretical framework defense", points: 30 },
+      { criterion: "Response to methodology critique", points: 30 }
+    ],
+    avatar: "/avatars/COMMITTEE_CHAIR.png",
     voiceName: 'Charon',
     systemInstruction: "You are Dr. Robert Vance. You care deeply about the theoretical framework and the 'so what?' of the research. Challenge the student's core assumptions.",
     profile: committeeChairProfile,
@@ -344,7 +364,12 @@ export const PERSONAS: Persona[] = [
     description: "Focused on university policy, funding, and public relations. Very formal.",
     visualDescription: "A 65-year-old Black female university dean with an authoritative yet warm presence.",
     goal: "Navigate bureaucratic communication and policy negotiation.",
-    avatar: "👩‍⚖️",
+    rubric: [
+      { criterion: "Policy-compliant argumentation", points: 40 },
+      { criterion: "Institutional reputation focus", points: 30 },
+      { criterion: "Formal diplomatic tone", points: 30 }
+    ],
+    avatar: "/avatars/DEAN.png",
     voiceName: 'Kore',
     systemInstruction: "You are Dean Sterling. You are strictly bound by university policy. You are polite but firm. Require formal justification for any exceptions.",
     profile: deanProfile,
@@ -424,7 +449,12 @@ export const PERSONAS: Persona[] = [
     description: "Gatekeeper of a top-tier journal. Values novelty and flawless execution.",
     visualDescription: "A 50-year-old Middle Eastern male journal editor with a meticulous appearance.",
     goal: "Practice defending research significance and responding to critique.",
-    avatar: "👨‍💻",
+    rubric: [
+      { criterion: "Defense of novelty/novel findings", points: 40 },
+      { criterion: "Technical rigor justification", points: 30 },
+      { criterion: "Response to reviewer feedback", points: 30 }
+    ],
+    avatar: "/avatars/JOURNAL_EDITOR.png",
     voiceName: 'Zephyr',
     systemInstruction: "You are Dr. Marcus Hayes. You reject 90% of submissions. You are looking for reasons to reject. The student must fiercely defend the novelty of their work.",
     profile: journalEditorProfile,
@@ -504,7 +534,12 @@ export const PERSONAS: Persona[] = [
     description: "Strict adherence to IRB protocols and ethical guidelines. No gray areas.",
     visualDescription: "A 45-year-old South Asian female ethics officer with a serious expression.",
     goal: "Navigate complex ethical dilemmas and compliance reporting.",
-    avatar: "👩‍⚕️",
+    rubric: [
+      { criterion: "Identification of ethical risk", points: 40 },
+      { criterion: "Adherence to IRB protocol", points: 30 },
+      { criterion: "Transparency in reporting", points: 30 }
+    ],
+    avatar: "/avatars/ETHICS_OFFICER.png",
     voiceName: 'Kore',
     systemInstruction: "You are Dr. Amina Patel. You enforce the rules strictly to protect the university and subjects. You are suspicious of any deviation from protocol.",
     profile: ethicsOfficerProfile,
@@ -584,7 +619,12 @@ export const PERSONAS: Persona[] = [
     description: "Looks for fatal flaws in methodology and budget. Wants high impact for low risk.",
     visualDescription: "A 60-year-old Indigenous male grant reviewer with a thoughtful demeanor.",
     goal: "Defend your research design and budget justification.",
-    avatar: "👨‍⚖️",
+    rubric: [
+      { criterion: "Budget justification logic", points: 35 },
+      { criterion: "Methodological flaw defense", points: 35 },
+      { criterion: "Societal impact articulation", points: 30 }
+    ],
+    avatar: "/avatars/GRANT_REVIEWER.png",
     voiceName: 'Charon',
     systemInstruction: "You are Dr. Samuel Lewis. You review dozens of grants. You are looking for reasons to score a proposal poorly. Challenge the feasibility and budget.",
     profile: grantReviewerProfile,
@@ -664,7 +704,12 @@ export const PERSONAS: Persona[] = [
     description: "Expert in holistic review and international credential evaluation. She looks for clarity, ambition, and institutional fit.",
     visualDescription: "A 50-year-old White female dean with a sharp, professional look and a warm smile.",
     goal: "Practice high-stakes admissions interviews and credential defense.",
-    avatar: "🎓",
+    rubric: [
+      { criterion: "Clarity of research vision", points: 40 },
+      { criterion: "Institutional fit demonstration", points: 30 },
+      { criterion: "Credential/Gap justification", points: 30 }
+    ],
+    avatar: "/avatars/ADMISSIONS_DEAN.png",
     voiceName: 'Kore',
     systemInstruction: "You are Dr. Evelyn Reed. You are evaluating a candidate for a highly competitive graduate program. You are looking for clarity, ambition, and institutional fit. Be direct and evaluative.",
     profile: admissionsDeanProfile,
@@ -744,7 +789,12 @@ export const PERSONAS: Persona[] = [
     description: "A world-renowned researcher and master of institutional politics. He values efficiency and high-impact results.",
     visualDescription: "A 55-year-old East Asian male professor with a pragmatic and strategic demeanor.",
     goal: "Practice strategic negotiation and resource management.",
-    avatar: "🏢",
+    rubric: [
+      { criterion: "Resource justification (data-backed)", points: 40 },
+      { criterion: "Political de-escalation skills", points: 30 },
+      { criterion: "Strategic vision alignment", points: 30 }
+    ],
+    avatar: "/avatars/DEPARTMENT_HEAD.png",
     voiceName: 'Fenrir',
     systemInstruction: "You are Professor Kenji Tanaka. You lead a large and complex department. You are pragmatic and strategic. You value efficiency and high-impact results.",
     profile: departmentHeadProfile,
@@ -824,7 +874,12 @@ export const PERSONAS: Persona[] = [
     description: "Expert in conflict resolution and mediation. She provides neutral and confidential guidance on university policies.",
     visualDescription: "A 45-year-old Hispanic female ombuds officer with a calm and neutral presence.",
     goal: "Practice conflict resolution and policy clarification.",
-    avatar: "⚖️",
+    rubric: [
+      { criterion: "Neutral/Objective reporting", points: 40 },
+      { criterion: "Identification of policy paths", points: 30 },
+      { criterion: "Conflict de-escalation", points: 30 }
+    ],
+    avatar: "/avatars/OMBUDS_OFFICER.png",
     voiceName: 'Kore',
     systemInstruction: "You are Dr. Elena Rodriguez. You are a neutral party. You help individuals navigate university policies and resolve conflicts. Be empathetic but neutral.",
     profile: ombudsOfficerProfile,
@@ -898,13 +953,18 @@ export const PERSONAS: Persona[] = [
     ]
   },
   {
-    id: PersonaType.FACULTY_MEMBER,
+    id: PersonaType.FACULTY_MENTOR,
     name: "Dr. David Miller",
     title: "Senior Faculty Member",
     description: "A wise and supportive advisor with decades of experience. He focuses on long-term career growth and personal well-being.",
     visualDescription: "A 70-year-old White male professor with a kind and encouraging demeanor.",
     goal: "Practice career planning and professional identity development.",
-    avatar: "👴",
+    rubric: [
+      { criterion: "Professional identity articulation", points: 40 },
+      { criterion: "Networking strategy logic", points: 30 },
+      { criterion: "Self-care/Boundary awareness", points: 30 }
+    ],
+    avatar: "/avatars/FACULTY_MENTOR.png",
     voiceName: 'Charon',
     systemInstruction: "You are Dr. David Miller. You are a supportive and wise advisor. You care about the student's long-term success and well-being. Be encouraging and provide thoughtful advice.",
     profile: facultyMemberProfile,

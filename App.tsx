@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import localforage from 'localforage';
+import { motion, AnimatePresence } from 'motion/react';
 import { PERSONAS } from './constants';
 import { Persona, SessionState, Scenario, Message } from './types';
-import { PersonaCard } from './components/PersonaCard';
+import { Info, Plus, Upload, ChevronDown, ChevronUp } from 'lucide-react';
 import { PersonaProfileModal } from './components/PersonaProfileModal';
 import { VoiceMode } from './components/VoiceMode';
 import { TextMode } from './components/TextMode';
@@ -24,6 +25,9 @@ const App: React.FC = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isRequestPersonModalOpen, setIsRequestPersonModalOpen] = useState(false);
   const [isRequestScenarioModalOpen, setIsRequestScenarioModalOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [isRubricExpanded, setIsRubricExpanded] = useState(false);
   const [instructorEmail, setInstructorEmail] = useState("sintjago@umich.edu");
   const [selectedPersonaForProfile, setSelectedPersonaForProfile] = useState<Persona | null>(null);
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
@@ -37,6 +41,7 @@ const App: React.FC = () => {
     mode: 'text',
     persona: null,
     scenario: null,
+    requestFeedback: true,
     messages: [],
     isTyping: false,
     isListening: false,
@@ -88,11 +93,10 @@ const App: React.FC = () => {
   const [portraits, setPortraits] = useState<Record<string, string>>({});
   const [portraitsLoaded, setPortraitsLoaded] = useState(false);
 
-  // Helper to get portrait with fallback
+  // Helper to get portrait with override support
   const getPortrait = (personaId: string) => {
     if (portraits[personaId]) return portraits[personaId];
-    // Fallback to picsum with persona-specific seed for consistency
-    return `https://picsum.photos/seed/${personaId}/400/400`;
+    return `/portraits/${personaId}.png`;
   };
 
   useEffect(() => {
@@ -124,6 +128,38 @@ const App: React.FC = () => {
       setActivePersonaId(personas[0].id);
     }
   }, [personas, activePersonaId]);
+
+  const [hasSavedSession, setHasSavedSession] = useState(false);
+
+  useEffect(() => {
+    const checkSavedSession = async () => {
+      const saved = await localforage.getItem('high_stakes_session');
+      setHasSavedSession(!!saved);
+    };
+    checkSavedSession();
+  }, [session.isActive]);
+
+  const resumeSession = async () => {
+    try {
+      const saved = await localforage.getItem<SessionState>('high_stakes_session');
+      if (saved) {
+        setSession({ ...saved, isActive: true });
+      }
+    } catch (err) {
+      console.error("Failed to resume session", err);
+    }
+  };
+
+  // Handle clicks outside of dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSelectPersona = (persona: Persona) => {
     setSession({ ...session, persona, scenario: null });
@@ -208,6 +244,7 @@ const App: React.FC = () => {
               portraits={portraits}
               setPortraits={setPortraits}
               initialMessages={session.initialMessages}
+              requestFeedback={session.requestFeedback}
             />
           ) : (
             <TextMode 
@@ -217,6 +254,7 @@ const App: React.FC = () => {
               portraits={portraits}
               setPortraits={setPortraits}
               initialMessages={session.initialMessages}
+              requestFeedback={session.requestFeedback}
             />
           )}
         </div>
@@ -367,112 +405,201 @@ const App: React.FC = () => {
         onClose={() => setIsProfileModalOpen(false)}
       />
 
-      <main className="flex-grow max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-10 w-full">
+      <main className="flex-grow max-w-7xl mx-auto px-4 md:px-6 py-2 md:py-6 w-full">
         {!session.persona ? (
-          <div className="space-y-6 md:space-y-12">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-b-2 border-[#FFCB05]/20 pb-6">
-              <div className="text-center sm:text-left">
-                <h2 className="text-xl md:text-3xl font-black text-[#00274C] uppercase tracking-tight">Select a person to talk to</h2>
-                <p className="text-[10px] md:text-sm text-slate-500 font-medium">Choose who you want to practice with today.</p>
+          <div className="space-y-4 md:space-y-8">
+            {/* Unified Persona Selector */}
+            <div className="space-y-4 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom duration-500 pb-6">
+              <div className="relative group" ref={dropdownRef}>
+                <label className="block text-[9px] md:text-[10px] font-black text-[#00274C] uppercase tracking-widest mb-2 ml-1">Select chatbot</label>
+                <div className="relative">
+                  <button
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="w-full bg-[#00274C] text-[#FFCB05] font-black uppercase tracking-widest text-xs md:text-sm p-3 md:p-4 rounded-xl shadow-xl border-4 border-transparent hover:border-[#FFCB05]/30 transition-all flex items-center justify-between text-left focus:outline-none focus:ring-4 focus:ring-[#FFCB05]/20"
+                  >
+                    <span className="truncate">
+                      {personas.find(p => p.id === activePersonaId)?.title || 'Select persona'}
+                    </span>
+                    <svg className={`w-5 h-5 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                  </button>
+
+                  <AnimatePresence>
+                    {isDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="absolute z-50 w-full mt-2 bg-[#00274C] border-2 border-[#FFCB05]/30 rounded-xl shadow-2xl overflow-hidden"
+                      >
+                        <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                          {personas.map(p => (
+                            <button
+                              key={p.id}
+                              onClick={() => {
+                                setActivePersonaId(p.id);
+                                setIsDropdownOpen(false);
+                              }}
+                              className={`w-full text-left p-4 hover:bg-[#FFCB05]/10 transition-colors border-b border-[#FFCB05]/10 last:border-0 flex flex-col gap-1 ${activePersonaId === p.id ? 'bg-[#FFCB05]/5' : ''}`}
+                            >
+                              <span className={`text-[10px] md:text-xs font-black uppercase tracking-wider ${activePersonaId === p.id ? 'text-[#FFCB05]' : 'text-[#FFCB05]/80'}`}>
+                                {p.title}
+                              </span>
+                              <span className="text-xs md:text-sm font-black text-white uppercase tracking-widest">
+                                {p.name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+
+              {personas.filter(p => p.id === activePersonaId).map(p => (
+                <div key={p.id} className="bg-white rounded-2xl md:rounded-[2rem] shadow-2xl border-2 border-slate-100 overflow-hidden group animate-in zoom-in-95 duration-300">
+                  <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                    {/* Portrait Section */}
+                    <div className="md:w-2/5 p-6 md:p-8 flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden">
+                      <div className="absolute -top-10 -left-10 w-40 h-40 bg-[#FFCB05]/10 rounded-full blur-3xl"></div>
+                      <div className="w-32 h-32 md:w-64 md:h-64 rounded-2xl md:rounded-[2.5rem] bg-white shadow-2xl border-4 md:border-8 border-white overflow-hidden relative z-10 transition-transform duration-500 group-hover:scale-105">
+                        <img src={getPortrait(p.id)} alt={p.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="mt-3 md:mt-6 text-center relative z-10 font-bold uppercase tracking-widest text-[#00274C]">
+                         <h3 className="text-xl md:text-2xl font-black tracking-tight mb-0.5">{p.name}</h3>
+                         <p className="text-[8px] md:text-[10px] opacity-60 leading-none">{p.title}</p>
+                         
+                         <div className="flex flex-wrap items-center justify-center gap-3 mt-2 md:mt-4">
+                           <button 
+                            onClick={() => handleShowProfile(p)}
+                            className="inline-flex items-center gap-1.5 text-[#00274C]/60 hover:text-[#00274C] transition-colors font-black uppercase tracking-widest text-[8px] md:text-[9px] border-b border-transparent hover:border-[#00274C]"
+                          >
+                            <Info className="w-3 h-3" />
+                            Learn More about {p.name.split(' ').pop()}
+                          </button>
+
+                          {hasSavedSession && (
+                            <button 
+                              onClick={resumeSession}
+                              className="inline-flex items-center gap-1.5 text-[#00274C]/60 hover:text-[#00274C] transition-colors font-black uppercase tracking-widest text-[8px] md:text-[9px] border-b border-transparent hover:border-[#00274C]"
+                            >
+                              <Upload className="w-3 h-3" />
+                              Resume
+                            </button>
+                          )}
+                         </div>
+                      </div>
+                    </div>
+
+                    {/* Info Section */}
+                    <div className="md:w-3/5 p-5 md:p-8 flex flex-col justify-center space-y-4 md:space-y-6">
+                      <div className="space-y-2 md:space-y-3">
+                        <div className="flex items-center gap-2">
+                           <div className="w-1 h-5 bg-[#FFCB05] rounded-full" />
+                           <h4 className="text-[9px] md:text-[10px] font-black text-[#00274C] uppercase tracking-widest">Character Context</h4>
+                        </div>
+                        <p className="text-slate-600 text-xs md:text-sm leading-relaxed font-semibold">
+                          {p.description}
+                        </p>
+                      </div>
+
+                      <div className="bg-[#00274C]/5 rounded-xl md:rounded-2xl p-4 md:p-6 space-y-3 border border-[#00274C]/5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#00274C] flex items-center justify-center text-[#FFCB05]">
+                              <svg className="w-3 h-3 md:w-3.5 md:h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" /></svg>
+                            </div>
+                            <span className="text-[9px] md:text-[10px] font-black text-[#00274C] uppercase tracking-widest">Grading Rubric</span>
+                          </div>
+                          
+                          {p.rubric && (
+                            <button 
+                              onClick={() => setIsRubricExpanded(!isRubricExpanded)}
+                              className="flex items-center gap-1 text-[8px] md:text-[9px] font-black text-[#00274C]/60 hover:text-[#00274C] uppercase tracking-widest transition-colors"
+                            >
+                              {isRubricExpanded ? 'Hide' : 'Show'} Rubric
+                              {isRubricExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-xs md:text-base text-[#00274C] leading-snug italic font-serif">"{p.goal}"</p>
+                        
+                        <AnimatePresence>
+                          {isRubricExpanded && p.rubric && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="pt-3 space-y-2 border-t border-[#00274C]/10 mt-2">
+                                {p.rubric.map((item, idx) => (
+                                  <div key={idx} className="flex justify-between items-start group/rubric hover:bg-[#00274C]/5 p-1 rounded transition-colors">
+                                    <div className="flex gap-2 items-start">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-[#FFCB05] mt-1.5 shrink-0" />
+                                      <span className="text-[10px] md:text-xs text-slate-700 font-medium leading-tight">{item.criterion}</span>
+                                    </div>
+                                    <span className="text-[9px] md:text-[11px] font-black text-[#00274C] whitespace-nowrap ml-2">
+                                      {item.points} pts
+                                    </span>
+                                  </div>
+                                ))}
+                                <div className="pt-2 border-t border-dashed border-[#00274C]/10 flex justify-between items-center text-[#00274C] font-black uppercase tracking-widest text-[10px]">
+                                  <span>Total Weight</span>
+                                  <span>{p.rubric.reduce((acc, item) => acc + item.points, 0)} pts</span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button 
+                          onClick={() => handleSelectPersona(p)}
+                          className="w-full bg-[#00274C] text-[#FFCB05] py-3 md:py-4 rounded-xl font-black text-xs md:text-sm uppercase tracking-[0.2em] hover:bg-[#003d77] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2 group/btn"
+                        >
+                          Initiate Conversation
+                          <svg className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="pt-8 border-t border-slate-100 flex justify-center">
                 <button 
                   onClick={() => setIsRequestPersonModalOpen(true)}
-                  className="flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-white border-2 border-[#00274C] text-[#00274C] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[#00274C] hover:text-[#FFCB05] transition-all shadow-md active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#00274C]"
-                  aria-label="Request New Person"
+                  className="inline-flex items-center gap-2 text-[#00274C] font-black uppercase tracking-[0.2em] text-[10px] md:text-xs py-3 px-6 rounded-xl border-2 border-transparent hover:border-[#00274C]/20 transition-all bg-slate-50"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                  <Plus className="w-4 h-4" />
                   Request New Person
                 </button>
-                <label 
-                  className="flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-[#00274C] text-[#FFCB05] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[#003d77] transition-all shadow-md cursor-pointer active:scale-95 focus-within:ring-2 focus-within:ring-[#FFCB05]"
-                  aria-label="Resume Session from JSON file"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                  Resume Session
-                  <input type="file" accept=".json" onChange={handleResumeSession} className="hidden" aria-hidden="true" />
-                </label>
               </div>
-            </div>
-            <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-              {personas.map(p => (
-                <PersonaCard 
-                  key={p.id} 
-                  persona={p} 
-                  onSelect={handleSelectPersona} 
-                  onShowProfile={handleShowProfile}
-                  portrait={getPortrait(p.id)} 
-                />
-              ))}
             </div>
 
-            {/* Mobile Tabs View */}
-            <div className="sm:hidden space-y-6">
-              <div className="grid grid-cols-4 gap-4 pb-2">
-                {personas.map(p => (
-                  <div key={p.id} className="flex flex-col items-center">
-                    <button
-                      onClick={() => setActivePersonaId(p.id)}
-                      className={`w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center text-2xl overflow-hidden relative group ${
-                        activePersonaId === p.id 
-                          ? 'border-[#FFCB05] scale-110 shadow-lg ring-4 ring-[#FFCB05]/20' 
-                          : 'border-slate-200 opacity-60 grayscale hover:opacity-100 hover:grayscale-0'
-                      }`}
-                      aria-label={`Select ${p.name}, ${p.title}`}
-                      aria-pressed={activePersonaId === p.id}
-                      title={`${p.name}\n${p.title}`}
-                    >
-                      <img src={getPortrait(p.id)} alt={p.name} className="w-full h-full object-cover" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Active Person Info - BIGGER FONT */}
-              <div className="text-center py-4 bg-[#00274C] rounded-2xl shadow-xl border-b-4 border-[#FFCB05] animate-in fade-in zoom-in duration-300 min-h-[80px] flex items-center justify-center">
-                {personas.filter(p => p.id === activePersonaId).map(p => (
-                  <div key={p.id} className="px-4">
-                    <h3 className="text-lg font-black text-[#FFCB05] uppercase tracking-tight leading-tight mb-1">
-                      {p.title}
-                    </h3>
-                    <p className="text-xs font-bold text-white/80 uppercase tracking-[0.3em]">
-                      {p.name}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Active Persona Detail for Mobile */}
-              <div className="animate-in fade-in slide-in-from-top duration-300">
-                {personas.filter(p => p.id === activePersonaId).map(p => (
-                  <PersonaCard 
-                    key={p.id} 
-                    persona={p} 
-                    onSelect={handleSelectPersona} 
-                    onShowProfile={handleShowProfile}
-                    portrait={getPortrait(p.id)} 
-                  />
-                ))}
-              </div>
-            </div>
           </div>
         ) : !session.scenario ? (
-          <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 animate-in fade-in slide-in-from-bottom duration-500">
-            <button onClick={resetToPersona} className="flex items-center gap-2 text-[#00274C]/60 hover:text-[#00274C] transition-colors font-bold text-[10px] md:text-sm uppercase tracking-wider">
+          <div className="max-w-4xl mx-auto space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom duration-500">
+            <button onClick={resetToPersona} className="flex items-center gap-2 text-[#00274C]/60 hover:text-[#00274C] transition-colors font-bold text-[9px] md:text-sm uppercase tracking-wider">
               <svg className="w-3.5 h-3.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
               Back to People
             </button>
 
-            <div className="text-center space-y-2 md:space-y-4">
-              <h2 className="text-2xl md:text-4xl font-black text-[#00274C] tracking-tight uppercase">Select Your Challenge</h2>
-              <p className="text-xs md:text-base text-slate-500 font-medium">Choose a high-stakes scenario to practice with {session.persona.name}.</p>
+            <div className="text-center space-y-1 md:space-y-2">
+              <h2 className="text-xl md:text-3xl font-black text-[#00274C] tracking-tight uppercase">Select Your Challenge</h2>
+              <p className="text-[10px] md:text-sm text-slate-500 font-medium">Choose a high-stakes scenario to practice with {session.persona.name}.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               {session.persona.scenarios.map(s => (
                 <div 
                   key={s.id} 
-                  className="bg-white border-2 md:border-4 border-slate-50 hover:border-[#FFCB05] rounded-2xl md:rounded-3xl p-6 md:p-8 cursor-pointer transition-all hover:shadow-2xl group relative overflow-hidden"
+                  className="bg-white border-2 md:border-4 border-slate-50 hover:border-[#FFCB05] rounded-xl md:rounded-2xl p-4 md:p-6 cursor-pointer transition-all hover:shadow-xl group relative overflow-hidden"
                 >
                   <div className="absolute top-0 right-0 w-16 h-16 md:w-24 md:h-24 bg-[#FFCB05]/10 rounded-bl-full translate-x-8 -translate-y-8 group-hover:scale-150 transition-transform"></div>
                   <div className="flex justify-between items-start relative z-10">
@@ -507,55 +634,70 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 animate-in fade-in slide-in-from-bottom duration-500">
+          <div className="max-w-4xl mx-auto space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom duration-500">
             <button onClick={resetToScenario} className="flex items-center gap-2 text-[#00274C]/60 hover:text-[#00274C] transition-colors font-bold text-xs md:text-sm uppercase tracking-wider">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
               Change Scenario
             </button>
 
-            <div className="bg-white rounded-[1.5rem] md:rounded-[3rem] p-4 md:p-16 shadow-2xl border-b-[6px] md:border-b-[12px] border-[#FFCB05] flex flex-col md:flex-row gap-4 md:gap-12 items-center relative overflow-hidden">
+            <div className="bg-white rounded-[1.2rem] md:rounded-[2rem] p-4 md:p-8 shadow-2xl border-b-4 md:border-b-8 border-[#FFCB05] flex flex-col md:flex-row gap-4 md:gap-8 items-center relative overflow-hidden">
               <div className="absolute -top-10 -right-10 w-64 h-64 bg-[#00274C]/5 rounded-full blur-3xl"></div>
               
-              <div className="w-24 h-24 md:w-56 md:h-56 flex-shrink-0 z-10 flex items-center justify-center bg-white rounded-[1.2rem] md:rounded-[2.5rem] shadow-2xl border-4 md:border-8 border-white text-[3rem] md:text-[8rem] overflow-hidden">
+              <div className="w-20 h-20 md:w-44 md:h-44 flex-shrink-0 z-10 flex items-center justify-center bg-white rounded-[1rem] md:rounded-[1.5rem] shadow-2xl border-2 md:border-4 border-white text-[2rem] md:text-[5rem] overflow-hidden">
                 <img src={getPortrait(session.persona.id)} alt={session.persona.name} className="w-full h-full object-cover" />
               </div>
-              <div className="space-y-2 md:space-y-6 flex-grow z-10 text-center md:text-left">
+              <div className="space-y-1 md:space-y-4 flex-grow z-10 text-center md:text-left">
                 <div>
-                  <h2 className="text-lg md:text-4xl font-black text-[#00274C] tracking-tight">{session.persona.name}</h2>
-                  <p className="text-[#00274C]/60 font-black uppercase tracking-widest text-[7px] md:text-[10px] mb-1 md:mb-2">{session.persona.title}</p>
-                  <div className="inline-block px-2 py-0.5 md:px-4 md:py-2 bg-[#00274C] text-[#FFCB05] rounded-lg md:rounded-xl text-[7px] md:text-[10px] font-black uppercase tracking-widest shadow-md">
+                  <h2 className="text-lg md:text-2xl font-black text-[#00274C] tracking-tight">{session.persona.name}</h2>
+                  <p className="text-[#00274C]/60 font-black uppercase tracking-widest text-[7px] md:text-[9px] mb-1">{session.persona.title}</p>
+                  <div className="inline-block px-2 py-0.5 md:px-3 md:py-1.5 bg-[#00274C] text-[#FFCB05] rounded-lg md:rounded-xl text-[7px] md:text-[9px] font-black uppercase tracking-widest shadow-md">
                     Target: {session.scenario.title}
                   </div>
                 </div>
                 
                 <div className="flex items-start gap-2 group/brief">
-                  <p className="text-slate-700 leading-relaxed italic text-[10px] md:text-lg font-medium border-l-4 md:border-l-8 border-[#FFCB05] pl-3 md:pl-6 py-1 md:py-2 flex-grow">
+                  <p className="text-slate-700 leading-relaxed italic text-[10px] md:text-base font-medium border-l-4 md:border-l-6 border-[#FFCB05] pl-3 md:pl-4 py-1 flex-grow">
                     "{session.scenario.context}"
                   </p>
                   <button 
                     onClick={() => speakText(session.scenario?.context || "", session.persona?.voiceName || "Kore")}
-                    className="mt-2 p-2 hover:bg-[#00274C]/5 rounded-full transition-colors opacity-0 group-hover/brief:opacity-100"
+                    className="mt-1 p-1.5 hover:bg-[#00274C]/5 rounded-full transition-colors opacity-0 group-hover/brief:opacity-100"
                     title="Listen to context"
                   >
-                    <svg className="w-5 h-5 text-[#00274C]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                    <svg className="w-4 h-4 text-[#00274C]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
                   </button>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row gap-2 md:gap-5 pt-2 md:pt-6">
-                  <button 
-                    onClick={() => startSession('text')}
-                    className="flex-1 bg-white border-2 md:border-4 border-[#00274C] text-[#00274C] py-2.5 md:py-5 px-4 md:px-8 rounded-lg md:rounded-2xl font-black uppercase tracking-widest text-[8px] md:text-xs transition-all flex items-center justify-center gap-2 md:gap-3 shadow-sm hover:bg-[#00274C] hover:text-[#FFCB05] active:scale-95"
-                  >
-                    <svg className="w-3.5 h-3.5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-                    Turn-based Text
-                  </button>
-                  <button 
-                    onClick={() => startSession('voice')}
-                    className="flex-1 bg-[#00274C] text-[#FFCB05] py-2.5 md:py-5 px-4 md:px-8 rounded-lg md:rounded-2xl font-black uppercase tracking-widest text-[8px] md:text-xs transition-all flex items-center justify-center gap-2 md:gap-3 shadow-xl hover:bg-[#003d77] active:scale-95 border-2 md:border-4 border-[#00274C]"
-                  >
-                    <svg className="w-3.5 h-3.5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-                    Real-time Voice
-                  </button>
+                <div className="flex flex-col gap-4 pt-1 md:pt-4">
+                  <div className="flex items-center gap-2 bg-white/50 p-2 md:p-3 rounded-lg border border-[#00274C]/10 self-center sm:self-start">
+                    <input 
+                      type="checkbox" 
+                      id="request-feedback" 
+                      checked={session.requestFeedback}
+                      onChange={(e) => setSession({ ...session, requestFeedback: e.target.checked })}
+                      className="w-4 h-4 md:w-5 md:h-5 accent-[#00274C] cursor-pointer"
+                    />
+                    <label htmlFor="request-feedback" className="text-[9px] md:text-xs font-black text-[#00274C] uppercase tracking-wider cursor-pointer">
+                      Provide feedback after the conversation
+                    </label>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2 md:gap-4">
+                    <button 
+                      onClick={() => startSession('text')}
+                      className="flex-1 bg-white border-2 border-[#00274C] text-[#00274C] py-2 md:py-3 px-4 md:px-6 rounded-lg md:rounded-xl font-black uppercase tracking-widest text-[7px] md:text-[10px] transition-all flex items-center justify-center gap-2 shadow-sm hover:bg-[#00274C] hover:text-[#FFCB05] active:scale-95"
+                    >
+                      <svg className="w-3.5 h-3.5 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                      Turn-based Text
+                    </button>
+                    <button 
+                      onClick={() => startSession('voice')}
+                      className="flex-1 bg-[#00274C] text-[#FFCB05] py-2 md:py-3 px-4 md:px-6 rounded-lg md:rounded-xl font-black uppercase tracking-widest text-[7px] md:text-[10px] transition-all flex items-center justify-center gap-2 shadow-xl hover:bg-[#003d77] active:scale-95 border-2 border-[#00274C]"
+                    >
+                      <svg className="w-3.5 h-3.5 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                      Real-time Voice
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

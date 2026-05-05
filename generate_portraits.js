@@ -61,9 +61,9 @@ const PERSONAS = [
     visualDescription: "A 50-year-old White female ombuds officer with a calm and neutral expression, office setting, professional portrait."
   },
   {
-    id: "FACULTY_MEMBER",
+    id: "FACULTY_MENTOR",
     name: "Dr. Michael Ross",
-    visualDescription: "A 45-year-old Black male faculty member with a supportive and encouraging look, office setting, professional portrait."
+    visualDescription: "A 45-year-old Black male faculty mentor with a supportive and encouraging look, office setting, professional portrait."
   }
 ];
 

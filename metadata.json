@@ -2,6 +2,7 @@
   "name": "High Stakes English Simulator",
   "description": "An interactive communication simulator for international graduate students to practice high-stakes English conversations with faculty, deans, and hiring managers.",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "camera"
   ]
 }

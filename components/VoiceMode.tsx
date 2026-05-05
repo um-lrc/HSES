@@ -10,12 +10,11 @@ interface VoiceModeProps {
   persona: Persona;
   scenario: Scenario;
   onExit: () => void;
-  portraits: Record<string, string>;
-  setPortraits: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   initialMessages?: Message[];
+  requestFeedback: boolean;
 }
 
-export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit, portraits, setPortraits, initialMessages }) => {
+export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit, initialMessages, requestFeedback }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [history, setHistory] = useState<Message[]>(initialMessages || []);
   const [currentInput, setCurrentInput] = useState("");
@@ -25,6 +24,7 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit,
   const [error, setError] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [isContextExpanded, setIsContextExpanded] = useState(true);
+  const [showPostSessionFeedback, setShowPostSessionFeedback] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sessionRef = useRef<any>(null);
@@ -39,28 +39,6 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit,
   // Recording Ref
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Global shortcuts for VoiceMode
-      if (e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        if (!isConnected && !isConnecting) {
-          startSession();
-        } else if (isConnected) {
-          handleExit(); // Or maybe just stop the session? handleExit stops and exits.
-        }
-      } else if (e.key.toLowerCase() === 't' && isConnected) {
-        e.preventDefault();
-        setShowTranscript(prev => !prev);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        handleExit();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isConnected, isConnecting, persona, scenario]);
 
   const cleanup = useCallback(() => {
     if (sessionRef.current) sessionRef.current.close();
@@ -85,51 +63,12 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit,
   const recordingDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const aiGainNodeRef = useRef<GainNode | null>(null);
 
-  const characterImage = portraits[persona.id];
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const portraitSrc = characterImage || `./portraits/${persona.id}.png`;
+  const portraitSrc = `/portraits/${persona.id}.png`;
 
   useEffect(() => {
     setImgError(false);
   }, [persona]);
-
-  const generateImage = async () => {
-    setIsGeneratingImage(true);
-    try {
-      const apiKey = getApiKey();
-      const ai = new GoogleGenAI({ apiKey });
-      const desc = persona.visualDescription || persona.description;
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: [
-          {
-            parts: [
-              { text: `A photorealistic portrait of ${persona.name}, who is a ${persona.title}. Description: ${desc}. The style should be highly detailed, photorealistic, cinematic lighting, professional photography. STRICTLY NO TEXT, NO WORDS, NO WATERMARKS, NO LOGOS, NO LETTERS. Solid background.` }
-            ]
-          }
-        ]
-      });
-      
-      for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) {
-          const newImage = `data:image/png;base64,${part.inlineData.data}`;
-          setPortraits(prev => ({ ...prev, [persona.id]: newImage }));
-          break;
-        }
-      }
-    } catch (err) {
-      console.error("Failed to generate character image:", err);
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!portraits[persona.id] && imgError) {
-      generateImage();
-    }
-  }, [persona, portraits, imgError]);
 
   const startSession = async () => {
     console.log("Starting voice session...");
@@ -306,7 +245,61 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit,
     }
   };
 
-  // Removed drawVisualizer
+  const handleExitWithRecording = useCallback(() => {
+    if (isRecording && mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.onstop = () => {
+        if (audioChunksRef.current.length > 0) {
+          const isVideo = mediaRecorderRef.current?.mimeType.includes('video');
+          const blob = new Blob(audioChunksRef.current, { type: mediaRecorderRef.current?.mimeType || 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const date = new Date().toISOString().split('T')[0];
+          a.download = `${date}_Recording_${persona.name.replace(/\s/g, '_')}.${isVideo ? 'webm' : 'ogg'}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+        
+        if (requestFeedback) {
+          setShowPostSessionFeedback(true);
+        } else {
+          onExit();
+        }
+      };
+      mediaRecorderRef.current.stop();
+    } else {
+      if (requestFeedback) {
+        setShowPostSessionFeedback(true);
+      } else {
+        onExit();
+      }
+    }
+  }, [isRecording, persona.name, requestFeedback, onExit]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Global shortcuts for VoiceMode
+    if (e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      if (!isConnected && !isConnecting) {
+        startSession();
+      } else if (isConnected) {
+        handleExitWithRecording();
+      }
+    } else if (e.key.toLowerCase() === 't' && isConnected) {
+      e.preventDefault();
+      setShowTranscript(prev => !prev);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleExitWithRecording();
+    }
+  }, [isConnected, isConnecting, startSession, handleExitWithRecording]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   const handleSaveProgress = () => {
     const json = generateSessionJson(persona, scenario, history, 'voice');
@@ -344,29 +337,6 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit,
 
   const handleShare = () => {
     shareToInstructor(persona, scenario);
-  };
-
-  const handleExit = () => {
-    if (isRecording && mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.onstop = () => {
-        if (audioChunksRef.current.length > 0) {
-          const isVideo = mediaRecorderRef.current?.mimeType.includes('video');
-          const blob = new Blob(audioChunksRef.current, { type: mediaRecorderRef.current?.mimeType || 'video/webm' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `Session_Recording_${persona.name.replace(/\s/g, '_')}_${new Date().toISOString().slice(0,10)}.${isVideo ? 'webm' : 'ogg'}`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }
-        onExit();
-      };
-      mediaRecorderRef.current.stop();
-    } else {
-      onExit();
-    }
   };
 
   return (
@@ -440,7 +410,7 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit,
             </>
           )}
           <button 
-            onClick={handleExit} 
+            onClick={handleExitWithRecording} 
             className="bg-red-600/20 hover:bg-red-600/50 text-white px-2 md:px-5 py-1 md:py-2 rounded-lg md:rounded-xl text-[7px] md:text-[10px] font-black uppercase tracking-widest transition-all border border-red-600/30 focus:outline-none focus:ring-2 focus:ring-red-500"
             aria-label="Exit Session (Esc)"
           >
@@ -489,51 +459,36 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit,
             <div className="text-center space-y-4 md:space-y-10 py-4 md:py-8 animate-in fade-in zoom-in duration-700 w-full max-w-2xl mx-auto flex flex-col shrink-0">
               <div className="relative">
                 <div className="w-32 h-32 md:w-64 md:h-64 bg-[#FFCB05] rounded-full flex items-center justify-center mx-auto shadow-2xl relative z-10 border-4 md:border-8 border-[#00274C] overflow-hidden group">
-                   {isGeneratingImage ? (
-                     <div className="animate-pulse flex flex-col items-center">
-                       <div className="w-6 h-6 md:w-12 md:h-12 border-4 border-[#00274C] border-t-transparent rounded-full animate-spin mb-2"></div>
-                       <span className="text-[#00274C] font-bold text-[7px] md:text-xs uppercase tracking-widest">Generating...</span>
-                     </div>
-                   ) : !imgError ? (
-                     <>
-                       <img 
-                         src={portraitSrc} 
-                         alt={persona.name} 
-                         className="w-full h-full object-cover" 
-                         onError={() => setImgError(true)}
-                       />
-                       <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 flex gap-1 md:gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-30">
-                         <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              generateImage();
-                            }}
-                            className="bg-[#00274C]/80 hover:bg-[#00274C] text-[#FFCB05] p-1.5 md:p-2 rounded-full transition-all shadow-lg transform hover:scale-110"
-                            title="Regenerate Portrait"
-                          >
-                            <svg className="w-3 h-3 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                         </button>
-                         <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const link = document.createElement('a');
-                              link.href = portraitSrc;
-                              link.download = `${persona.id}.png`;
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            }}
-                            className="bg-[#00274C]/80 hover:bg-[#00274C] text-[#FFCB05] p-1.5 md:p-2 rounded-full transition-all shadow-lg transform hover:scale-110"
-                            title="Download Portrait"
-                          >
-                            <svg className="w-3 h-3 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                          </button>
-                       </div>
-                     </>
-                   ) : (
-                     <div className="text-4xl md:text-8xl">{persona.avatar}</div>
-                   )}
-                </div>
+               {!imgError ? (
+                 <>
+                   <img 
+                     src={portraitSrc} 
+                     alt={persona.name} 
+                     className="w-full h-full object-cover" 
+                     onError={() => setImgError(true)}
+                   />
+                   <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 flex gap-1 md:gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-30">
+                     <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const link = document.createElement('a');
+                          link.href = portraitSrc;
+                          link.download = `${persona.id}.png`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                        className="bg-[#00274C]/80 hover:bg-[#00274C] text-[#FFCB05] p-1.5 md:p-2 rounded-full transition-all shadow-lg transform hover:scale-110"
+                        title="Download Portrait"
+                      >
+                        <svg className="w-3 h-3 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                      </button>
+                   </div>
+                 </>
+               ) : (
+                 <div className="text-4xl md:text-8xl">{persona.avatar}</div>
+               )}
+            </div>
               </div>
               
               <div className="space-y-2 md:space-y-4">
@@ -741,6 +696,30 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit,
           animation: maize-btn-pulse 2s infinite;
         }
       `}</style>
+      {showPostSessionFeedback && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-xl w-full text-center space-y-6">
+            <h2 className="text-2xl font-black text-[#00274C] uppercase tracking-widest">Session Complete</h2>
+            <p className="text-slate-600">Your conversation has been recorded and exported. Please provide some brief feedback for your English simulation portfolio.</p>
+            <div className="p-6 bg-[#F8F9FA] rounded-2xl border-2 border-[#00274C]/10 text-left">
+              <label className="block text-[10px] font-black text-[#00274C] uppercase tracking-widest mb-2">Confidence Level</label>
+              <div className="flex gap-2 mb-4">
+                {[1,2,3,4,5].map(v => (
+                  <button key={v} className="w-10 h-10 rounded-lg border-2 border-[#00274C]/20 hover:border-[#FFCB05] hover:bg-[#FFCB05]/10 flex items-center justify-center font-bold text-[#00274C]">{v}</button>
+                ))}
+              </div>
+              <label className="block text-[10px] font-black text-[#00274C] uppercase tracking-widest mb-2">Self-Reflection</label>
+              <textarea className="w-full p-4 rounded-xl border-2 border-[#00274C]/10 outline-none focus:border-[#00274C] text-[#00274C]" rows={4} placeholder="How did you feel during this interaction?"></textarea>
+            </div>
+            <button 
+              onClick={onExit}
+              className="w-full bg-[#00274C] text-[#FFCB05] py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-[#003d77] transition-all"
+            >
+              Finish & Return to Main Menu
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

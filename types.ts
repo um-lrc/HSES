@@ -11,7 +11,7 @@ export enum PersonaType {
   ADMISSIONS_DEAN = 'ADMISSIONS_DEAN',
   DEPARTMENT_HEAD = 'DEPARTMENT_HEAD',
   OMBUDS_OFFICER = 'OMBUDS_OFFICER',
-  FACULTY_MEMBER = 'FACULTY_MEMBER'
+  FACULTY_MENTOR = 'FACULTY_MENTOR'
 }
 
 export interface Scenario {
@@ -34,6 +34,11 @@ export interface PersonaProfile {
   biography: string;
 }
 
+export interface RubricItem {
+  criterion: string;
+  points: number;
+}
+
 export interface Persona {
   id: PersonaType;
   name: string;
@@ -41,6 +46,7 @@ export interface Persona {
   description: string;
   visualDescription?: string;
   goal: string;
+  rubric?: RubricItem[];
   systemInstruction: string;
   embeddedContext?: string;
   avatar: string;
@@ -72,5 +78,13 @@ export interface SessionState {
   mode: 'text' | 'voice';
   persona: Persona | null;
   scenario: Scenario | null;
+  requestFeedback: boolean;
+  messages: Message[];
+  isTyping: boolean;
+  isListening: boolean;
+  isSpeaking: boolean;
+  transcript: string;
+  showTranscript: boolean;
+  feedback: Feedback | null;
   initialMessages?: Message[];
 }
