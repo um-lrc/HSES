@@ -25,7 +25,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Professional modal usage in recovery plan", points: 30 },
       { criterion: "Defensive methodology reasoning", points: 30 }
     ],
-    avatar: "/avatars/ADVISOR.png",
+    avatar: "./avatars/ADVISOR.png",
     voiceName: 'Fenrir',
     systemInstruction: "You are Dr. Aris Thorne. You value academic precision and efficiency. If the student is vague, ask for data. Correct their professional etiquette if they are too casual.",
     embeddedContext: "",
@@ -112,7 +112,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Clear data access request", points: 35 },
       { criterion: "De-escalation of disagreement", points: 30 }
     ],
-    avatar: "/avatars/PEER_COLLABORATOR.png",
+    avatar: "./avatars/PEER_COLLABORATOR.png",
     voiceName: 'Puck',
     systemInstruction: "You are Dr. Jamie Chen, a stressed post-doc. You want to help but are overwhelmed. Push back if the student asks for too much time.",
     embeddedContext: "",
@@ -199,7 +199,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Data-backed wage negotiation", points: 30 },
       { criterion: "Growth-oriented feedback response", points: 30 }
     ],
-    avatar: "/avatars/HIRING_MANAGER.png",
+    avatar: "./avatars/HIRING_MANAGER.png",
     voiceName: 'Kore',
     systemInstruction: "You are Sarah Davis. You are interviewing a PhD student for an industry role. You are skeptical of 'academic' answers. Push for concrete examples of impact and teamwork.",
     profile: hiringManagerProfile,
@@ -284,7 +284,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Theoretical framework defense", points: 30 },
       { criterion: "Response to methodology critique", points: 30 }
     ],
-    avatar: "/avatars/COMMITTEE_CHAIR.png",
+    avatar: "./avatars/COMMITTEE_CHAIR.png",
     voiceName: 'Charon',
     systemInstruction: "You are Dr. Robert Vance. You care deeply about the theoretical framework and the 'so what?' of the research. Challenge the student's core assumptions.",
     profile: committeeChairProfile,
@@ -369,7 +369,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Institutional reputation focus", points: 30 },
       { criterion: "Formal diplomatic tone", points: 30 }
     ],
-    avatar: "/avatars/DEAN.png",
+    avatar: "./avatars/DEAN.png",
     voiceName: 'Kore',
     systemInstruction: "You are Dean Sterling. You are strictly bound by university policy. You are polite but firm. Require formal justification for any exceptions.",
     profile: deanProfile,
@@ -454,7 +454,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Technical rigor justification", points: 30 },
       { criterion: "Response to reviewer feedback", points: 30 }
     ],
-    avatar: "/avatars/JOURNAL_EDITOR.png",
+    avatar: "./avatars/JOURNAL_EDITOR.png",
     voiceName: 'Zephyr',
     systemInstruction: "You are Dr. Marcus Hayes. You reject 90% of submissions. You are looking for reasons to reject. The student must fiercely defend the novelty of their work.",
     profile: journalEditorProfile,
@@ -539,7 +539,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Adherence to IRB protocol", points: 30 },
       { criterion: "Transparency in reporting", points: 30 }
     ],
-    avatar: "/avatars/ETHICS_OFFICER.png",
+    avatar: "./avatars/ETHICS_OFFICER.png",
     voiceName: 'Kore',
     systemInstruction: "You are Dr. Amina Patel. You enforce the rules strictly to protect the university and subjects. You are suspicious of any deviation from protocol.",
     profile: ethicsOfficerProfile,
@@ -624,7 +624,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Methodological flaw defense", points: 35 },
       { criterion: "Societal impact articulation", points: 30 }
     ],
-    avatar: "/avatars/GRANT_REVIEWER.png",
+    avatar: "./avatars/GRANT_REVIEWER.png",
     voiceName: 'Charon',
     systemInstruction: "You are Dr. Samuel Lewis. You review dozens of grants. You are looking for reasons to score a proposal poorly. Challenge the feasibility and budget.",
     profile: grantReviewerProfile,
@@ -709,7 +709,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Institutional fit demonstration", points: 30 },
       { criterion: "Credential/Gap justification", points: 30 }
     ],
-    avatar: "/avatars/ADMISSIONS_DEAN.png",
+    avatar: "./avatars/ADMISSIONS_DEAN.png",
     voiceName: 'Kore',
     systemInstruction: "You are Dr. Evelyn Reed. You are evaluating a candidate for a highly competitive graduate program. You are looking for clarity, ambition, and institutional fit. Be direct and evaluative.",
     profile: admissionsDeanProfile,
@@ -794,7 +794,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Political de-escalation skills", points: 30 },
       { criterion: "Strategic vision alignment", points: 30 }
     ],
-    avatar: "/avatars/DEPARTMENT_HEAD.png",
+    avatar: "./avatars/DEPARTMENT_HEAD.png",
     voiceName: 'Fenrir',
     systemInstruction: "You are Professor Kenji Tanaka. You lead a large and complex department. You are pragmatic and strategic. You value efficiency and high-impact results.",
     profile: departmentHeadProfile,
@@ -879,7 +879,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Identification of policy paths", points: 30 },
       { criterion: "Conflict de-escalation", points: 30 }
     ],
-    avatar: "/avatars/OMBUDS_OFFICER.png",
+    avatar: "./avatars/OMBUDS_OFFICER.png",
     voiceName: 'Kore',
     systemInstruction: "You are Dr. Elena Rodriguez. You are a neutral party. You help individuals navigate university policies and resolve conflicts. Be empathetic but neutral.",
     profile: ombudsOfficerProfile,
@@ -964,7 +964,7 @@ export const PERSONAS: Persona[] = [
       { criterion: "Networking strategy logic", points: 30 },
       { criterion: "Self-care/Boundary awareness", points: 30 }
     ],
-    avatar: "/avatars/FACULTY_MENTOR.png",
+    avatar: "./avatars/FACULTY_MENTOR.png",
     voiceName: 'Charon',
     systemInstruction: "You are Dr. David Miller. You are a supportive and wise advisor. You care about the student's long-term success and well-being. Be encouraging and provide thoughtful advice.",
     profile: facultyMemberProfile,

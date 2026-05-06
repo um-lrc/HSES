@@ -64,7 +64,7 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit,
   const aiGainNodeRef = useRef<GainNode | null>(null);
 
   const [imgError, setImgError] = useState(false);
-  const portraitSrc = `/portraits/${persona.id}.png`;
+  const portraitSrc = `./portraits/${persona.id}.png`;
 
   useEffect(() => {
     setImgError(false);

@@ -96,7 +96,7 @@ const App: React.FC = () => {
   // Helper to get portrait with override support
   const getPortrait = (personaId: string) => {
     if (portraits[personaId]) return portraits[personaId];
-    return `/portraits/${personaId}.png`;
+    return `./portraits/${personaId}.png`;
   };
 
   useEffect(() => {

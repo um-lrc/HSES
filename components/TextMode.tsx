@@ -43,7 +43,7 @@ export const TextMode: React.FC<TextModeProps> = ({ persona, scenario, onExit, i
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [imgError, setImgError] = useState(false);
   const [showPostSessionFeedback, setShowPostSessionFeedback] = useState(false);
-  const portraitSrc = `/portraits/${persona.id}.png`;
+  const portraitSrc = `./portraits/${persona.id}.png`;
 
   const { isRecording: isVideoRecording, startRecording: startVideoRecording, stopRecording: stopVideoRecording } = useScreenRecorder(persona.name);
   
