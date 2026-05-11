@@ -3,6 +3,12 @@
 # Option A: project-root `.env` with GEMINI_API_KEY (Compose loads it for interpolation + secrets).
 # Option B: `docker compose --env-file .env.local up --build`
 # Option C: `export GEMINI_API_KEY=...` then `docker compose up --build`
+#
+# Restart behavior:
+# - `web`: `restart: unless-stopped` — Docker restarts the container if the main process exits
+#   (crash, OOM kill, etc.), but not after you run `docker compose stop`.
+# - Optional `autoheal` profile: restarts containers that stay unhealthy (needs Docker socket).
+#   Start with: `docker compose --profile autoheal --env-file .env.local up -d`
 
 services:
   web:
@@ -14,6 +20,27 @@ services:
     ports:
       - "${WEB_PORT:-3000}:80"
     restart: unless-stopped
+    init: true
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      autoheal: "true"
+
+  # Restarts unhealthy containers (e.g. nginx wedged). Enable with --profile autoheal.
+  autoheal:
+    profiles: ["autoheal"]
+    image: willfarrell/autoheal:1.2.0
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_INTERVAL: 10
+      AUTOHEAL_START_PERIOD: 120
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 secrets:
   gemini_api_key:
