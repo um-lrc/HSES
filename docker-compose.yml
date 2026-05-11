@@ -1,0 +1,20 @@
+# GEMINI_API_KEY must be available at image build time (Vite inlines it).
+# It is passed as a BuildKit secret (not ARG) so it does not appear in docker build logs.
+# Option A: project-root `.env` with GEMINI_API_KEY (Compose loads it for interpolation + secrets).
+# Option B: `docker compose --env-file .env.local up --build`
+# Option C: `export GEMINI_API_KEY=...` then `docker compose up --build`
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      secrets:
+        - gemini_api_key
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    restart: unless-stopped
+
+secrets:
+  gemini_api_key:
+    environment: GEMINI_API_KEY
