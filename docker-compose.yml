@@ -1,20 +1,21 @@
 # GEMINI_API_KEY must be available at image build time (Vite inlines it).
-# It is passed as a BuildKit secret (not ARG) so it does not appear in docker build logs.
-# Option A: project-root `.env` with GEMINI_API_KEY (Compose loads it for interpolation + secrets).
-# Option B: `docker compose --env-file .env.local up --build`
-# Option C: `export GEMINI_API_KEY=...` then `docker compose up --build`
+# Compose mounts project-root `.env` as the build secret by default (same file Compose uses for
+# `${VAR}` interpolation). Copy from `.env.example` if needed. If the key lives only in
+# `.env.local`, set `GEMINI_API_KEY_FILE=.env.local` in `.env` or your shell before `compose build`.
 #
 # Restart behavior:
 # - `web`: `restart: unless-stopped` — Docker restarts the container if the main process exits
 #   (crash, OOM kill, etc.), but not after you run `docker compose stop`.
 # - Optional `autoheal` profile: restarts containers that stay unhealthy (needs Docker socket).
-#   Start with: `docker compose --profile autoheal --env-file .env.local up -d`
+#   Start with: `docker compose --profile autoheal up -d`
 
 services:
   web:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       secrets:
         - gemini_api_key
     ports:
@@ -44,4 +45,4 @@ services:
 
 secrets:
   gemini_api_key:
-    environment: GEMINI_API_KEY
+    file: ${GEMINI_API_KEY_FILE:-.env}

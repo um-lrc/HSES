@@ -15,6 +15,6 @@ View your app in AI Studio: https://ai.studio/apps/4fb20179-3e82-4eb3-aae2-41641
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Set `GEMINI_API_KEY` in [.env.local](.env.local) for `npm run dev`. For Docker Compose builds, use a project [.env](.env) (see [.env.example](.env.example)); if the key lives only in `.env.local`, add `GEMINI_API_KEY_FILE=.env.local` to `.env` so Compose can mount it.
 3. Run the app:
    `npm run dev`
