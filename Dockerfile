@@ -21,5 +21,7 @@ RUN npm run build
 FROM nginx:1.27-alpine
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
+# dist may contain mode 600 assets from the builder; nginx workers run as non-root and need read + dir traverse.
+RUN chmod -R a+rX /usr/share/nginx/html
 
 EXPOSE 80
