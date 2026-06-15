@@ -1,9 +1,13 @@
 # syntax=docker/dockerfile:1
 # Build static assets (API key is inlined at build time — see vite.config.ts).
-# Prefer BuildKit secret `gemini_api_key`: may be a dotenv file (e.g. .env.local) or a raw key.
-# If the secret mount is empty, falls back to build-arg GEMINI_API_KEY.
-# Standalone: docker build --secret id=gemini_api_key,env=GEMINI_API_KEY -t hses-web .
-#            docker build --build-arg GEMINI_API_KEY=... -t hses-web .   # when secret unused
+#
+# CI (GitHub Actions): GEMINI_API_KEY is passed as a build-arg from repository secrets.
+# Local compose: BuildKit secret `gemini_api_key` from a dotenv file, or build-arg fallback.
+# Portainer: pull a pre-built image from GHCR (see docker-compose.portainer.yml).
+#
+# Standalone:
+#   docker build --build-arg GEMINI_API_KEY=... -t ghcr.io/um-lrc/hses .
+#   docker build --secret id=gemini_api_key,src=.env -t ghcr.io/um-lrc/hses .
 FROM node:22-alpine AS builder
 ARG GEMINI_API_KEY=""
 WORKDIR /app

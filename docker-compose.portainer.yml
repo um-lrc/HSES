@@ -1,0 +1,25 @@
+# Portainer stack: pulls a pre-built image from GitHub Container Registry (GHCR).
+# Build and push images via `.github/workflows/docker-build.yml` (GEMINI_API_KEY is baked in at build time).
+#
+# Set these in Portainer → Stack → Environment variables:
+#   DOCKER_IMAGE      (default: ghcr.io/um-lrc/hses)
+#   DOCKER_IMAGE_TAG  (default: latest)
+#   WEB_PORT          (default: 3000)
+#
+# Private GHCR packages: add registry credentials in Portainer → Registries
+# (username: GitHub username, password: PAT with read:packages).
+
+services:
+  web:
+    image: ${DOCKER_IMAGE:-ghcr.io/um-lrc/hses}:${DOCKER_IMAGE_TAG:-latest}
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

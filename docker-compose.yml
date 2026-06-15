@@ -1,3 +1,6 @@
+# Local development: builds the image from source on this machine.
+# For Portainer / GHCR deployment, use docker-compose.portainer.yml instead.
+#
 # GEMINI_API_KEY must be available at image build time (Vite inlines it).
 # Compose mounts project-root `.env` as the build secret by default (same file Compose uses for
 # `${VAR}` interpolation). Copy from `.env.example` if needed. If the key lives only in
