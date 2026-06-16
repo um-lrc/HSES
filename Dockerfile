@@ -42,7 +42,10 @@ COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 COPY --from=builder /app/dist /usr/share/nginx/html
-RUN chmod -R a+rX /usr/share/nginx/html
+# Fallback on disk before entrypoint runs; entrypoint overwrites with the live key.
+RUN printf '%s\n' 'window.__RUNTIME_CONFIG__={"GEMINI_API_KEY":"","API_KEY":""};' \
+    > /usr/share/nginx/html/runtime-config.js \
+    && chmod -R a+rX /usr/share/nginx/html
 
 EXPOSE 80
 ENTRYPOINT ["/docker-entrypoint.sh"]

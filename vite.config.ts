@@ -24,6 +24,11 @@ export default defineConfig(({ mode }) => {
                   children: 'window.__RUNTIME_CONFIG__={"GEMINI_API_KEY":"","API_KEY":""};',
                   injectTo: 'head-prepend',
                 },
+                {
+                  tag: 'script',
+                  attrs: { src: './runtime-config.js', defer: '' },
+                  injectTo: 'head-prepend',
+                },
               ];
             },
           },
