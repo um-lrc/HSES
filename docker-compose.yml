@@ -1,10 +1,10 @@
 # Local development: builds the image from source on this machine.
 # For Portainer / GHCR deployment, use docker-compose.portainer.yml instead.
 #
-# GEMINI_API_KEY must be available at image build time (Vite inlines it).
-# Compose mounts project-root `.env` as the build secret by default (same file Compose uses for
-# `${VAR}` interpolation). Copy from `.env.example` if needed. If the key lives only in
-# `.env.local`, set `GEMINI_API_KEY_FILE=.env.local` in `.env` or your shell before `compose build`.
+# GEMINI_API_KEY is required in `.env` for the running container (injected at start).
+# Optional at build time via build secret / build-arg; runtime env takes precedence in the app.
+# Compose mounts project-root `.env` as the build secret by default. Copy from `.env.example` if needed.
+# If the key lives only in `.env.local`, set `GEMINI_API_KEY_FILE=.env.local` in `.env` before `compose build`.
 #
 # Restart behavior:
 # - `web`: `restart: unless-stopped` — Docker restarts the container if the main process exits
@@ -23,6 +23,8 @@ services:
         - gemini_api_key
     ports:
       - "${WEB_PORT:-3000}:80"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     restart: unless-stopped
     init: true
     stop_grace_period: 15s

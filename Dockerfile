@@ -1,13 +1,14 @@
 # syntax=docker/dockerfile:1
-# Build static assets (API key is inlined at build time — see vite.config.ts).
+# Static Vite build served by nginx. GEMINI_API_KEY is injected at container start
+# (see docker/docker-entrypoint.sh) from the GEMINI_API_KEY environment variable.
 #
-# CI (GitHub Actions): GEMINI_API_KEY is passed as a build-arg from repository secrets.
-# Local compose: BuildKit secret `gemini_api_key` from a dotenv file, or build-arg fallback.
-# Portainer: pull a pre-built image from GHCR (see docker-compose.portainer.yml).
+# Portainer / compose: set GEMINI_API_KEY in stack env vars — no rebuild needed to rotate keys.
+# Local compose: same — pass GEMINI_API_KEY in .env for the running container.
+# Optional build-time key (build-arg or secret) still works as a fallback when runtime env is unset.
 #
 # Standalone:
-#   docker build --build-arg GEMINI_API_KEY=... -t ghcr.io/um-lrc/hses .
-#   docker build --secret id=gemini_api_key,src=.env -t ghcr.io/um-lrc/hses .
+#   docker build -t ghcr.io/um-lrc/hses .
+#   docker run -e GEMINI_API_KEY=... -p 3000:80 ghcr.io/um-lrc/hses
 FROM node:22-alpine AS builder
 ARG GEMINI_API_KEY=""
 WORKDIR /app
@@ -31,18 +32,17 @@ RUN --mount=type=secret,id=gemini_api_key,required=false \
       KEY="$$(tr -d '\n\r' </run/secrets/gemini_api_key)"; \
     fi; \
     if [ -z "$$KEY" ]; then KEY="${GEMINI_API_KEY}"; fi; \
-    if [ -z "$$KEY" ]; then \
-      echo "ERROR: GEMINI_API_KEY is empty. For docker compose: add GEMINI_API_KEY=... to project .env (see .env.example) or set GEMINI_API_KEY_FILE. For docker build: --secret id=gemini_api_key,env=GEMINI_API_KEY or --build-arg GEMINI_API_KEY=..." >&2; \
-      exit 1; \
-    fi; \
     printf "GEMINI_API_KEY=%s\n" "$$KEY" > .env.production
 
 RUN npm run build
 
 FROM nginx:1.27-alpine
+RUN apk add --no-cache jq
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 COPY --from=builder /app/dist /usr/share/nginx/html
-# dist may contain mode 600 assets from the builder; nginx workers run as non-root and need read + dir traverse.
 RUN chmod -R a+rX /usr/share/nginx/html
 
 EXPOSE 80
+ENTRYPOINT ["/docker-entrypoint.sh"]

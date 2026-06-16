@@ -1,7 +1,8 @@
 # Portainer stack: pulls a pre-built image from GitHub Container Registry (GHCR).
-# Build and push images via `.github/workflows/docker-build.yml` (GEMINI_API_KEY is baked in at build time).
+# Build and push images via `.github/workflows/docker-build.yml`.
 #
 # Set these in Portainer → Stack → Environment variables:
+#   GEMINI_API_KEY    (required — injected into the app at container start)
 #   DOCKER_IMAGE      (default: ghcr.io/um-lrc/hses)
 #   DOCKER_IMAGE_TAG  (default: latest — must match a tag from the Actions build; use the commit SHA if latest is missing)
 #   WEB_PORT          (default: 3000)
@@ -18,6 +19,8 @@ services:
     image: ${DOCKER_IMAGE:-ghcr.io/um-lrc/hses}:${DOCKER_IMAGE_TAG:-latest}
     ports:
       - "${WEB_PORT:-3000}:80"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     restart: unless-stopped
     init: true
     stop_grace_period: 15s
