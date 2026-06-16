@@ -77,8 +77,11 @@ export const VoiceMode: React.FC<VoiceModeProps> = ({ persona, scenario, onExit,
     try {
       const apiKey = getApiKey();
       if (!apiKey) {
-        console.error("API Key missing");
-        setError("Gemini API Key is missing. Please check your settings.");
+        console.error("API Key missing", {
+          runtimeConfig: window.__RUNTIME_CONFIG__,
+          useCustomKey: localStorage.getItem('useCustomApiKey') === 'true',
+        });
+        setError("Gemini API Key is missing. Set GEMINI_API_KEY in Portainer and redeploy, or open /runtime-config.js to verify it is populated.");
         setIsConnecting(false);
         return;
       }

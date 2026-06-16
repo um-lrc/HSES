@@ -20,7 +20,7 @@ services:
     ports:
       - "${WEB_PORT:-3000}:80"
     environment:
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?Set GEMINI_API_KEY in Portainer stack environment variables}
     restart: unless-stopped
     init: true
     stop_grace_period: 15s

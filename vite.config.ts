@@ -12,6 +12,22 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [
+        {
+          name: 'hses-runtime-config',
+          transformIndexHtml: {
+            order: 'pre',
+            handler() {
+              return [
+                {
+                  tag: 'script',
+                  attrs: { id: 'hses-runtime-config' },
+                  children: 'window.__RUNTIME_CONFIG__={"GEMINI_API_KEY":"","API_KEY":""};',
+                  injectTo: 'head-prepend',
+                },
+              ];
+            },
+          },
+        },
         react(),
         tailwindcss(),
       ],
