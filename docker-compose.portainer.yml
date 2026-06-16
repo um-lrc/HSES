@@ -3,11 +3,15 @@
 #
 # Set these in Portainer → Stack → Environment variables:
 #   DOCKER_IMAGE      (default: ghcr.io/um-lrc/hses)
-#   DOCKER_IMAGE_TAG  (default: latest)
+#   DOCKER_IMAGE_TAG  (default: latest — must match a tag from the Actions build; use the commit SHA if latest is missing)
 #   WEB_PORT          (default: 3000)
 #
-# Private GHCR packages: add registry credentials in Portainer → Registries
-# (username: GitHub username, password: PAT with read:packages).
+# GHCR auth (required — packages are private by default):
+#   Portainer → Registries → Add registry
+#   URL: ghcr.io | Username: your GitHub username | Password: PAT with read:packages
+#   Then link the registry to this stack (or enable "Use default registry").
+#
+# Make the package public (optional): GitHub → Packages → hses → Package settings → Change visibility.
 
 services:
   web:
