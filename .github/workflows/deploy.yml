@@ -1,0 +1,214 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: um-lrc/hses
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  redeploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Redeploy Portainer stack
+        env:
+          PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
+          PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
+          PORTAINER_USERNAME: ${{ secrets.PORTAINER_USERNAME }}
+          PORTAINER_PASSWORD: ${{ secrets.PORTAINER_PASSWORD }}
+          PORTAINER_STACK_ID: ${{ secrets.PORTAINER_STACK_ID }}
+          PORTAINER_ENDPOINT_ID: ${{ secrets.PORTAINER_ENDPOINT_ID }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+
+          fail() {
+            echo "Error: $*" >&2
+            exit 1
+          }
+
+          jq_run() {
+            local description="$1"
+            shift
+            local output
+            if ! output=$(jq -e "$@" 2>&1); then
+              echo "Portainer redeploy failed while ${description}:" >&2
+              echo "$output" >&2
+              return 1
+            fi
+            printf '%s' "$output"
+          }
+
+          portainer_request() {
+            local description="$1"
+            shift
+            local response http_code
+
+            response=$(mktemp)
+            http_code=$(curl -sS -o "$response" -w '%{http_code}' "$@") || {
+              echo "Portainer ${description} failed: curl error (exit $?)" >&2
+              cat "$response" >&2 || true
+              rm -f "$response"
+              exit 1
+            }
+
+            if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+              echo "Portainer ${description} failed (HTTP ${http_code}):" >&2
+              cat "$response" >&2
+              rm -f "$response"
+              exit 1
+            fi
+
+            cat "$response"
+            rm -f "$response"
+          }
+
+          PORTAINER_URL=$(trim "$PORTAINER_URL")
+          PORTAINER_STACK_ID=$(trim "$PORTAINER_STACK_ID")
+          PORTAINER_ENDPOINT_ID=$(trim "$PORTAINER_ENDPOINT_ID")
+          PORTAINER_API_KEY=$(trim "${PORTAINER_API_KEY:-}")
+          PORTAINER_USERNAME=$(trim "${PORTAINER_USERNAME:-}")
+          PORTAINER_PASSWORD=$(trim "${PORTAINER_PASSWORD:-}")
+
+          if [ -z "$PORTAINER_URL" ]; then
+            fail "Missing PORTAINER_URL secret (expected e.g. https://apps.lrc.lsa.umich.edu/portainer)"
+          fi
+          if [ -z "$PORTAINER_STACK_ID" ]; then
+            fail "Missing PORTAINER_STACK_ID secret"
+          fi
+          if [ -z "$PORTAINER_ENDPOINT_ID" ]; then
+            fail "Missing PORTAINER_ENDPOINT_ID secret"
+          fi
+
+          PORTAINER_URL="${PORTAINER_URL%/}"
+          if [[ ! "$PORTAINER_URL" =~ ^https?:// ]]; then
+            fail "PORTAINER_URL must include http:// or https://"
+          fi
+
+          echo "Using Portainer URL: ${PORTAINER_URL}"
+
+          AUTH_HEADER=()
+          if [ -n "$PORTAINER_API_KEY" ]; then
+            AUTH_HEADER=(-H "X-API-Key: ${PORTAINER_API_KEY}")
+          elif [ -n "$PORTAINER_USERNAME" ] && [ -n "$PORTAINER_PASSWORD" ]; then
+            AUTH_JSON=$(jq -n \
+              --arg username "$PORTAINER_USERNAME" \
+              --arg password "$PORTAINER_PASSWORD" \
+              '{username: $username, password: $password}')
+
+            AUTH_RESPONSE=$(portainer_request "authentication" \
+              -X POST "${PORTAINER_URL}/api/auth" \
+              -H "Content-Type: application/json" \
+              -d "$AUTH_JSON")
+
+            TOKEN=$(jq_run "parsing authentication token" -r '.jwt' <<< "$AUTH_RESPONSE") || {
+              echo "Authentication response (first 200 chars):" >&2
+              head -c 200 <<< "$AUTH_RESPONSE" >&2 || true
+              echo >&2
+              exit 1
+            }
+
+            if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+              fail "Failed to authenticate with Portainer username/password"
+            fi
+
+            AUTH_HEADER=(-H "Authorization: Bearer ${TOKEN}")
+          else
+            fail "Set PORTAINER_API_KEY or PORTAINER_USERNAME + PORTAINER_PASSWORD"
+          fi
+
+          echo "Checking Portainer API connectivity..."
+          portainer_request "status check" \
+            "${AUTH_HEADER[@]}" \
+            "${PORTAINER_URL}/api/status" > /dev/null
+
+          STACK=$(portainer_request "stack lookup" \
+            "${AUTH_HEADER[@]}" \
+            "${PORTAINER_URL}/api/stacks/${PORTAINER_STACK_ID}?endpointId=${PORTAINER_ENDPOINT_ID}")
+
+          if ! jq -e . >/dev/null 2>&1 <<< "$STACK"; then
+            echo "Stack lookup returned non-JSON response (first 300 chars):" >&2
+            head -c 300 <<< "$STACK" >&2 || true
+            echo >&2
+            fail "Expected JSON from GET /api/stacks/${PORTAINER_STACK_ID}"
+          fi
+
+          GIT_BACKED=$(jq_run "checking git stack configuration" -r '
+            (.GitConfig // .gitConfig // null) | if . == null then "no" else "yes" end
+          ' <<< "$STACK") || exit 1
+
+          if [ "$GIT_BACKED" != "yes" ]; then
+            fail "Stack ${PORTAINER_STACK_ID} is not git-backed. Create it from the repo in Portainer first."
+          fi
+
+          ENV=$(jq_run "merging stack environment variables" --arg tag "$IMAGE_TAG" '
+            (.Env // .env // [] | if type == "array" then . else [] end) |
+            map(if (.name // .Name) then {name: (.name // .Name), value: (.value // .Value // "")} else empty end) |
+            map(select(.name != "IMAGE_TAG" and .name != "DOCKER_IMAGE_TAG")) +
+            [{name: "IMAGE_TAG", value: $tag}]
+          ' <<< "$STACK") || exit 1
+
+          REDEPLOY_BODY=$(jq_run "building redeploy request body" -n \
+            --argjson env "$ENV" \
+            '{
+              env: $env,
+              RepullImageAndRedeploy: true,
+              prune: true,
+              repositoryAuthentication: true
+            }') || exit 1
+
+          portainer_request "git redeploy" \
+            -X PUT \
+            "${AUTH_HEADER[@]}" \
+            -H "Content-Type: application/json" \
+            -d "$REDEPLOY_BODY" \
+            "${PORTAINER_URL}/api/stacks/${PORTAINER_STACK_ID}/git/redeploy?endpointId=${PORTAINER_ENDPOINT_ID}" \
+            > /dev/null
+
+          echo "Portainer stack ${PORTAINER_STACK_ID} redeployed with IMAGE_TAG=${IMAGE_TAG}"

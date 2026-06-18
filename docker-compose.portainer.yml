@@ -1,22 +1,20 @@
 # Portainer stack: pulls a pre-built image from GitHub Container Registry (GHCR).
-# Build and push images via `.github/workflows/docker-build.yml`.
+# CI builds and redeploys via `.github/workflows/deploy.yml` on push to main.
 #
 # Set these in Portainer → Stack → Environment variables:
-#   GEMINI_API_KEY    (required — injected into the app at container start)
-#   DOCKER_IMAGE      (default: ghcr.io/um-lrc/hses)
-#   DOCKER_IMAGE_TAG  (default: latest — must match a tag from the Actions build; use the commit SHA if latest is missing)
-#   WEB_PORT          (default: 3000)
+#   GEMINI_API_KEY  (required — injected into the app at container start)
+#   IMAGE_TAG       (default: latest — CI sets this to the git SHA on each deploy)
+#   WEB_PORT        (default: 3000 — host port mapped to container port 80)
 #
 # GHCR auth (required — packages are private by default):
 #   Portainer → Registries → Add registry
 #   URL: ghcr.io | Username: your GitHub username | Password: PAT with read:packages
-#   Then link the registry to this stack (or enable "Use default registry").
 #
 # Make the package public (optional): GitHub → Packages → hses → Package settings → Change visibility.
 
 services:
   web:
-    image: ${DOCKER_IMAGE:-ghcr.io/um-lrc/hses}:${DOCKER_IMAGE_TAG:-latest}
+    image: ghcr.io/um-lrc/hses:${IMAGE_TAG:-latest}
     ports:
       - "${WEB_PORT:-3000}:80"
     environment:
